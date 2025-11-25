@@ -81,10 +81,10 @@ pub fn build(b: *std.Build) void {
     c_module.linkSystemLibrary("m", .{});
     c_module.linkSystemLibrary("SDL2", .{});
 
-    // const mod = b.addModule("zite", .{
-    //     .root_source_file = b.path("src/root.zig"),
-    //     .target = target,
-    // });
+    const mod = b.addModule("zite", .{
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+    });
 
     const exe = b.addExecutable(.{
         .name = "zlite",
@@ -98,10 +98,10 @@ pub fn build(b: *std.Build) void {
                     .name = "czite",
                     .module = c_module,
                 },
-                // .{
-                //     .name = "zite",
-                //     .module = mod,
-                // },
+                .{
+                    .name = "zite",
+                    .module = mod,
+                },
             },
         }),
     });

@@ -1,8 +1,7 @@
 const std = @import("std");
+const zite = @import("zite");
 
 const c = @cImport({
-    @cInclude("SDL2/SDL.h");
-
     @cInclude("api/api.h");
     @cInclude("renderer.h");
 
@@ -32,37 +31,10 @@ fn init_window_icon() void {
 }
 
 pub fn main() !void {
-    if (c.SDL_Init(c.SDL_INIT_VIDEO | c.SDL_INIT_EVENTS) != 0) {
-        std.debug.print("SDL_Init failed: {s}\n", .{c.SDL_GetError()});
-        return;
-    }
-    defer c.SDL_Quit();
-
-    c.SDL_EnableScreenSaver();
-    _ = c.SDL_EventState(c.SDL_DROPFILE, c.SDL_ENABLE);
-
-    _ = c.SDL_SetHint("SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR", "0");
-    _ = c.SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
-
-    var dm: c.SDL_DisplayMode = undefined;
-    _ = c.SDL_GetCurrentDisplayMode(0, &dm);
-
-    window = c.SDL_CreateWindow(
-        "",
-        c.SDL_WINDOWPOS_UNDEFINED,
-        c.SDL_WINDOWPOS_UNDEFINED,
-        @intFromFloat(@as(f32, @floatFromInt(dm.w)) * 0.8),
-        @intFromFloat(@as(f32, @floatFromInt(dm.h)) * 0.8),
-        c.SDL_WINDOW_RESIZABLE | c.SDL_WINDOW_ALLOW_HIGHDPI | c.SDL_WINDOW_HIDDEN,
-    );
-
-    if (window == null) {
-        std.debug.print("SDL_CreateWindow failed: {s}\n", .{c.SDL_GetError()});
-        return;
-    }
-
+    var zWindow = try zite.ZWindow.new();
+    defer zWindow.deinit();
     init_window_icon();
-    c.ren_init(window.?);
+    c.ren_init(@ptrCast(zWindow.window));
 
     const L = c.luaL_newstate() orelse return error.LuaInitFail;
     defer c.lua_close(L);
@@ -127,6 +99,4 @@ pub fn main() !void {
         const msg = c.lua_tolstring(L, -1, @as([*c]usize, @ptrCast(&len)));
         std.debug.print("Lua runtime error: {s}\n", .{msg});
     }
-
-    c.SDL_DestroyWindow(window.?);
 }
