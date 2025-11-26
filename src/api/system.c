@@ -1,3 +1,6 @@
+// src/api/system.c
+// SDL3 version of system.c for zlite — exposes events and system helpers to Lua.
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_messagebox.h>
 #include <stdbool.h>
@@ -6,13 +9,15 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+
 #include "api.h"
 #include "rencache.h"
 
-
-
-
-
+/* window is defined in renderer.c (non-static) */
+extern SDL_Window *window;
 
 static const char *button_name(int b) {
     switch (b) {
@@ -25,9 +30,9 @@ static const char *button_name(int b) {
 
 static char *key_name(char *dst, SDL_Keycode sym) {
     const char *raw = SDL_GetKeyName(sym);
+    /* copy and lower-case */
     strcpy(dst, raw);
-    for (char *p = dst; *p; p++)
-        *p = tolower(*p);
+    for (char *p = dst; *p; p++) *p = (char)tolower((unsigned char)*p);
     return dst;
 }
 
@@ -36,8 +41,7 @@ static int f_poll_event(lua_State *L) {
     char buf[32];
 
 top:
-    if (!SDL_PollEvent(&e))
-        return 0;
+    if (!SDL_PollEvent(&e)) return 0;
 
     switch (e.type) {
 
@@ -46,6 +50,7 @@ top:
         return 1;
 
     case SDL_EVENT_WINDOW_RESIZED:
+        /* SDL3 provides data1/data2 on window events */
         lua_pushstring(L, "resized");
         lua_pushnumber(L, e.window.data1);
         lua_pushnumber(L, e.window.data2);
@@ -55,6 +60,18 @@ top:
         rencache_invalidate();
         lua_pushstring(L, "exposed");
         return 1;
+
+    case SDL_EVENT_WINDOW_FOCUS_GAINED:
+        /* Flush any queued keydown events (same behaviour as original SDL2 code) */
+        SDL_FlushEvent(SDL_EVENT_KEY_DOWN);
+        /* enable text input so SDL_TEXT_INPUT events arrive */
+        SDL_StartTextInput(window);
+        goto top; /* continue polling (skip returning anything for focus events) */
+
+    case SDL_EVENT_WINDOW_FOCUS_LOST:
+        /* stop text input when focus lost */
+        SDL_StopTextInput(window);
+        goto top;
 
     case SDL_EVENT_KEY_DOWN:
         lua_pushstring(L, "keypressed");
@@ -67,11 +84,13 @@ top:
         return 2;
 
     case SDL_EVENT_TEXT_INPUT:
+        /* text input comes from SDL_StartTextInput() */
         lua_pushstring(L, "textinput");
         lua_pushstring(L, e.text.text);
         return 2;
 
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        if (e.button.button == SDL_BUTTON_LEFT) { SDL_CaptureMouse(true); }
         lua_pushstring(L, "mousepressed");
         lua_pushstring(L, button_name(e.button.button));
         lua_pushnumber(L, e.button.x);
@@ -80,6 +99,7 @@ top:
         return 5;
 
     case SDL_EVENT_MOUSE_BUTTON_UP:
+        if (e.button.button == SDL_BUTTON_LEFT) { SDL_CaptureMouse(false); }
         lua_pushstring(L, "mousereleased");
         lua_pushstring(L, button_name(e.button.button));
         lua_pushnumber(L, e.button.x);
@@ -100,29 +120,34 @@ top:
         return 2;
 
     case SDL_EVENT_DROP_FILE: {
-      ;
-        char *path = (char*)e.drop.data;
+        /* SDL_Event.drop.data is const char*; SDL_free takes void* — cast safely */
+        const char *path = e.drop.data;
         lua_pushstring(L, "filedropped");
         lua_pushstring(L, path);
+        /* SDL3 provides drop.x / drop.y relative to the window */
         lua_pushnumber(L, e.drop.x);
         lua_pushnumber(L, e.drop.y);
+        /* free the string memory allocated by SDL */
         SDL_free((void*)path);
         return 4;
     }
+
     default:
         goto top;
     }
-}
 
+    return 0;
+}
 
 static int f_wait_event(lua_State *L) {
     double n = luaL_checknumber(L, 1);
     SDL_Event e;
+    /* SDL_WaitEventTimeout returns SDL_TRUE/SDL_FALSE */
     lua_pushboolean(L, SDL_WaitEventTimeout(&e, (int)(n * 1000)));
     return 1;
 }
 
-
+/* cursor mapping (SDL3 system cursors) */
 static SDL_Cursor* cursor_cache[SDL_SYSTEM_CURSOR_POINTER + 1];
 
 static const char *cursor_opts[] = {
@@ -154,34 +179,37 @@ static int f_set_cursor(lua_State *L) {
   return 0;
 }
 
-
 static int f_set_window_title(lua_State *L) {
     SDL_SetWindowTitle(window, luaL_checkstring(L, 1));
     return 0;
 }
 
-
-static const char *window_opts[] = { "normal", "maximized", "fullscreen", 0 };
+static const char *window_opts[] = { "normal", "maximized", "fullscreen", NULL };
 enum { WIN_NORMAL, WIN_MAXIMIZED, WIN_FULLSCREEN };
 
 static int f_set_window_mode(lua_State *L) {
-    static const char *modes[] = { "normal", "maximized", "fullscreen", NULL };
-    int mode = luaL_checkoption(L, 1, "normal", modes);
+    int mode = luaL_checkoption(L, 1, "normal", window_opts);
 
     switch (mode) {
-        case 0: SDL_SetWindowFullscreen(window, false); break;
-        case 1: SDL_MaximizeWindow(window); break;
-        case 2: SDL_SetWindowFullscreen(window, true); break;
+        case WIN_NORMAL:
+            SDL_SetWindowFullscreen(window, false);
+            SDL_RestoreWindow(window);
+            break;
+        case WIN_MAXIMIZED:
+            SDL_MaximizeWindow(window);
+            break;
+        case WIN_FULLSCREEN:
+            SDL_SetWindowFullscreen(window, true);
+            break;
     }
     return 0;
 }
 
-
 static int f_window_has_focus(lua_State *L) {
-    lua_pushboolean(L, (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) !=0);
+    uint32_t flags = SDL_GetWindowFlags(window);
+    lua_pushboolean(L, (flags & SDL_WINDOW_INPUT_FOCUS) != 0);
     return 1;
 }
-
 
 static int f_show_confirm_dialog(lua_State *L) {
     const char *title = luaL_checkstring(L, 1);
@@ -205,15 +233,12 @@ static int f_show_confirm_dialog(lua_State *L) {
     return 1;
 }
 
-
-
 static int f_chdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
   int err = chdir(path);
   if (err) { luaL_error(L, "chdir() failed"); }
   return 0;
 }
-
 
 static int f_list_dir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
@@ -240,7 +265,6 @@ static int f_list_dir(lua_State *L) {
   return 1;
 }
 
-
 #ifdef _WIN32
   #include <windows.h>
   #define realpath(x, y) _fullpath(y, x, MAX_PATH)
@@ -254,7 +278,6 @@ static int f_absolute_path(lua_State *L) {
   free(res);
   return 1;
 }
-
 
 static int f_get_file_info(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
@@ -286,23 +309,18 @@ static int f_get_file_info(lua_State *L) {
   return 1;
 }
 
-
-
 static int f_get_clipboard(lua_State *L) {
     char *text = SDL_GetClipboardText();
-    if (!text)
-        return 0;
+    if (!text) return 0;
     lua_pushstring(L, text);
     SDL_free(text);
     return 1;
 }
 
-
 static int f_set_clipboard(lua_State *L) {
     SDL_SetClipboardText(luaL_checkstring(L, 1));
     return 0;
 }
-
 
 static int f_get_time(lua_State *L) {
     double t = SDL_GetTicksNS() / 1e9;
@@ -320,7 +338,6 @@ static int f_exec(lua_State *L) {
     system(cmd);
     return 0;
 }
-
 
 static int f_fuzzy_match(lua_State *L) {
   const char *str = luaL_checkstring(L, 1);
@@ -347,7 +364,6 @@ static int f_fuzzy_match(lua_State *L) {
   return 1;
 }
 
-
 static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
   { "wait_event",          f_wait_event          },
@@ -368,7 +384,6 @@ static const luaL_Reg lib[] = {
   { "fuzzy_match",         f_fuzzy_match         },
   { NULL, NULL }
 };
-
 
 int luaopen_system(lua_State *L) {
   luaL_newlib(L, lib);

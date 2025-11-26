@@ -87,7 +87,7 @@ pub fn build(b: *std.Build) void {
     });
 
     const exe = b.addExecutable(.{
-        .name = "zlite",
+        .name = "zite",
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
