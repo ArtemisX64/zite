@@ -1,16 +1,14 @@
-const sdl2 = @cImport(
-    @cInclude("SDL2/SDL.h"),
-);
 const sdl = @import("sdl3");
-
 const std = @import("std");
+const Api = @import("api/api.zig").Api;
+const Renderer = @import("renderer.zig").Renderer;
 
-pub const ZWindow = struct {
+pub const Window = struct {
     window: sdl.video.Window,
     flags: sdl.InitFlags,
     renderer: sdl.render.Renderer,
 
-    pub fn new() !ZWindow {
+    fn new() !Window {
         const flags = sdl.InitFlags{ .video = true, .events = true };
         try sdl.init(flags);
         try sdl.video.enableScreenSaver();
@@ -27,61 +25,42 @@ pub const ZWindow = struct {
         });
         const renderer = try sdl.render.Renderer.init(window, null);
 
-        return ZWindow{
+        return Window{
             .window = window,
             .flags = flags,
             .renderer = renderer,
         };
     }
 
-    pub fn deinit(self: *ZWindow) void {
+    fn deinit(self: *Window) void {
         self.window.deinit();
         sdl.quit(self.flags);
         sdl.shutdown();
     }
 };
 
-//LEGACY SDL2
-// pub const ZWindowO = struct {
-//     window: *sdl2.SDL_Window,
+pub const Zite = struct {
+    api: Api,
+    window: Window,
+    renderer: Renderer,
 
-//     pub fn new() !ZWindowO {
-//         if (sdl2.SDL_Init(sdl2.SDL_INIT_VIDEO | sdl2.SDL_INIT_EVENTS) != 0) {
-//             std.debug.print("Error Initialising SDL: {s}\n", .{sdl2.SDL_GetError()});
-//             return error.Uninitialised;
-//         }
+    pub fn new(allocator: std.mem.Allocator) !Zite {
+        const window = try Window.new();
+        const renderer = Renderer.new(&window);
+        const api = try Api.new(allocator);
+        return .{
+            .api = api,
+            .window = window,
+            .renderer = renderer,
+        };
+    }
 
-//         sdl2.SDL_EnableScreenSaver();
+    pub fn init(self: *Zite) void {
+        self.api.init();
+    }
 
-//         _ = sdl2.SDL_EventState(sdl2.SDL_DROPFILE, sdl2.SDL_ENABLE);
-
-//         _ = sdl2.SDL_SetHint("SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR", "0");
-//         _ = sdl2.SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
-
-//         var dm: sdl2.SDL_DisplayMode = undefined;
-//         _ = sdl2.SDL_GetCurrentDisplayMode(0, &dm);
-
-//         const window = sdl2.SDL_CreateWindow(
-//             "",
-//             sdl2.SDL_WINDOWPOS_UNDEFINED,
-//             sdl2.SDL_WINDOWPOS_UNDEFINED,
-//             @intFromFloat(@as(f32, @floatFromInt(dm.w)) * 0.8),
-//             @intFromFloat(@as(f32, @floatFromInt(dm.h)) * 0.8),
-//             sdl2.SDL_WINDOW_RESIZABLE | sdl2.SDL_WINDOW_ALLOW_HIGHDPI | sdl2.SDL_WINDOW_HIDDEN,
-//         );
-
-//         if (window == null) {
-//             std.debug.print("SDL_CreateWindow failed: {s}\n", .{sdl2.SDL_GetError()});
-//             return error.WindowCreationFailed;
-//         }
-
-//         return ZWindowO{
-//             .window = window.?,
-//         };
-//     }
-
-//     pub fn deinit(self: *ZWindowO) void {
-//         sdl2.SDL_DestroyWindow(self.window);
-//         sdl2.SDL_Quit();
-//     }
-// };
+    pub fn deinit(self: *Zite) void {
+        self.api.deinit();
+        self.window.deinit();
+    }
+};

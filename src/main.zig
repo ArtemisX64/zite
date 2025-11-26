@@ -1,16 +1,13 @@
 const std = @import("std");
-const zite = @import("zite");
+const Zite = @import("zite").Zite;
+const ZWindow = @import("zite").ZWindow;
 
 const c = @cImport({
-    @cInclude("api/api.h");
-    @cInclude("renderer.h");
-
+    @cInclude("SDL3/SDL.h");
     @cInclude("lib/lua52/lua.h");
     @cInclude("lib/lua52/lauxlib.h");
     @cInclude("lib/lua52/lualib.h");
 });
-
-//var window: ?*c.SDL_Window = null;
 
 fn get_scale() f32 {
     return 1.0;
@@ -27,17 +24,14 @@ fn get_exe_filename(alloc: std.mem.Allocator) ![:0]u8 {
 }
 
 pub fn main() !void {
-    // var zWindow = try zite.ZWindowO.new();
-    var zWindow = try zite.ZWindow.new();
-    defer zWindow.deinit();
-    // defer zWindow.deinit();
-    c.ren_init(@ptrCast(zWindow.window.value), @ptrCast(zWindow.renderer.value));
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var zite = try Zite.new(gpa.allocator());
 
-    const L = c.luaL_newstate() orelse return error.LuaInitFail;
+    const L: *c.struct_lua_State = @ptrCast(zite.api.lua);
     defer c.lua_close(L);
 
     c.luaL_openlibs(L);
-    c.api_load_libs(L);
+    zite.init();
 
     // ARGS
     c.lua_newtable(L);
@@ -57,7 +51,6 @@ pub fn main() !void {
     c.lua_pushnumber(L, get_scale());
     c.lua_setglobal(L, "SCALE");
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var exename = try get_exe_filename(gpa.allocator());
     // lua_pushstring expects C string pointer
     _ = c.lua_pushstring(L, @as([*c]const u8, @ptrCast(exename[0..])));

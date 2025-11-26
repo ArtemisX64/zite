@@ -1,7 +1,10 @@
-#include "api.h"
 #include "renderer.h"
 #include "rencache.h"
+#include "lib/lua52/lua.h"
+#include "lib/lua52/lauxlib.h"
+#include "lib/lua52/lualib.h"
 
+#define API_TYPE_FONT "Font"
 
 static RenColor checkcolor(lua_State *L, int idx, int def) {
   RenColor color;

@@ -1,8 +1,10 @@
-#include "api.h"
 #include "renderer.h"
 #include "rencache.h"
+#include "lib/lua52/lua.h"
+#include "lib/lua52/lauxlib.h"
+#include "lib/lua52/lualib.h"
 
-
+#define API_TYPE_FONT "Font"
 static int f_load(lua_State *L) {
   const char *filename  = luaL_checkstring(L, 1);
   float size = luaL_checknumber(L, 2);

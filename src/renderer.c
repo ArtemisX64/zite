@@ -7,6 +7,7 @@
 
 #define MAX_GLYPHSET 256
 
+
 typedef struct
 {
   SDL_Texture *texture; // GPU texture for atlas

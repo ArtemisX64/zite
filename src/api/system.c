@@ -13,8 +13,11 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "api.h"
 #include "rencache.h"
+
+#include "lib/lua52/lua.h"
+#include "lib/lua52/lauxlib.h"
+#include "lib/lua52/lualib.h"
 
 /* window is defined in renderer.c (non-static) */
 extern SDL_Window *window;

@@ -20,7 +20,6 @@ pub fn build(b: *std.Build) void {
                 //"src/main.c",
                 "src/renderer.c",
                 "src/rencache.c",
-                "src/api/api.c",
                 "src/api/renderer.c",
                 "src/api/renderer_font.c",
                 "src/api/system.c",
@@ -111,18 +110,18 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    // const lua_dep = b.dependency("zlua", .{
-    //     .target = target,
-    //     .optimize = optimize,
-    //     .lang = .lua52,
-    //     .shared = true,
-    // });
+    const lua_dep = b.dependency("zlua", .{
+        .target = target,
+        .optimize = optimize,
+        .lang = .lua52,
+        .shared = true,
+    });
 
     mod.addImport("sdl3", sdl3.module("sdl3"));
-    // mod.addImport("zlua", lua_dep.module("zlua"));
+    mod.addImport("zlua", lua_dep.module("zlua"));
     exe.addIncludePath(.{ .cwd_relative = "src" });
     exe.addIncludePath(.{ .cwd_relative = "src/lib/lua52" });
-    exe.addIncludePath(.{ .cwd_relative = "src/api" });
-
+    //TODO: To be deleted
+    mod.addIncludePath(.{ .cwd_relative = "src" });
     b.installArtifact(exe);
 }
