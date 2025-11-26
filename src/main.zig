@@ -10,7 +10,7 @@ const c = @cImport({
     @cInclude("lib/lua52/lualib.h");
 });
 
-var window: ?*c.SDL_Window = null;
+//var window: ?*c.SDL_Window = null;
 
 fn get_scale() f32 {
     return 1.0;
@@ -26,15 +26,12 @@ fn get_exe_filename(alloc: std.mem.Allocator) ![:0]u8 {
     return cexe_path;
 }
 
-fn init_window_icon() void {
-    // no-op for Linux
-}
-
 pub fn main() !void {
+    // var zWindow = try zite.ZWindowO.new();
     var zWindow = try zite.ZWindow.new();
     defer zWindow.deinit();
-    init_window_icon();
-    c.ren_init(@ptrCast(zWindow.window));
+    // defer zWindow.deinit();
+    c.ren_init(@ptrCast(zWindow.window.value), @ptrCast(zWindow.renderer.value));
 
     const L = c.luaL_newstate() orelse return error.LuaInitFail;
     defer c.lua_close(L);

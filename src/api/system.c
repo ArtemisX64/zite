@@ -1,4 +1,5 @@
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_messagebox.h>
 #include <stdbool.h>
 #include <ctype.h>
 #include <dirent.h>
@@ -7,139 +8,122 @@
 #include <sys/stat.h>
 #include "api.h"
 #include "rencache.h"
-#ifdef _WIN32
-  #include <windows.h>
-#endif
-
-SDL_Window *window; //TODO: Fixxxx
 
 
-static const char* button_name(int button) {
-  switch (button) {
-    case 1  : return "left";
-    case 2  : return "middle";
-    case 3  : return "right";
-    default : return "?";
-  }
+
+
+
+
+static const char *button_name(int b) {
+    switch (b) {
+        case SDL_BUTTON_LEFT:   return "left";
+        case SDL_BUTTON_MIDDLE: return "middle";
+        case SDL_BUTTON_RIGHT:  return "right";
+    }
+    return "?";
 }
 
-
-static char* key_name(char *dst, int sym) {
-  strcpy(dst, SDL_GetKeyName(sym));
-  char *p = dst;
-  while (*p) {
-    *p = tolower(*p);
-    p++;
-  }
-  return dst;
+static char *key_name(char *dst, SDL_Keycode sym) {
+    const char *raw = SDL_GetKeyName(sym);
+    strcpy(dst, raw);
+    for (char *p = dst; *p; p++)
+        *p = tolower(*p);
+    return dst;
 }
-
 
 static int f_poll_event(lua_State *L) {
-  char buf[16];
-  int mx, my, wx, wy;
-  SDL_Event e;
+    SDL_Event e;
+    char buf[32];
 
 top:
-  if ( !SDL_PollEvent(&e) ) {
-    return 0;
-  }
+    if (!SDL_PollEvent(&e))
+        return 0;
 
-  switch (e.type) {
-    case SDL_QUIT:
-      lua_pushstring(L, "quit");
-      return 1;
+    switch (e.type) {
 
-    case SDL_WINDOWEVENT:
-      if (e.window.event == SDL_WINDOWEVENT_RESIZED) {
+    case SDL_EVENT_QUIT:
+        lua_pushstring(L, "quit");
+        return 1;
+
+    case SDL_EVENT_WINDOW_RESIZED:
         lua_pushstring(L, "resized");
         lua_pushnumber(L, e.window.data1);
         lua_pushnumber(L, e.window.data2);
         return 3;
-      } else if (e.window.event == SDL_WINDOWEVENT_EXPOSED) {
+
+    case SDL_EVENT_WINDOW_EXPOSED:
         rencache_invalidate();
         lua_pushstring(L, "exposed");
         return 1;
-      }
-      /* on some systems, when alt-tabbing to the window SDL will queue up
-      ** several KEYDOWN events for the `tab` key; we flush all keydown
-      ** events on focus so these are discarded */
-      if (e.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
-        SDL_FlushEvent(SDL_KEYDOWN);
-      }
-      goto top;
 
-    case SDL_DROPFILE:
-      SDL_GetGlobalMouseState(&mx, &my);
-      SDL_GetWindowPosition(window, &wx, &wy);
-      lua_pushstring(L, "filedropped");
-      lua_pushstring(L, e.drop.file);
-      lua_pushnumber(L, mx - wx);
-      lua_pushnumber(L, my - wy);
-      SDL_free(e.drop.file);
-      return 4;
+    case SDL_EVENT_KEY_DOWN:
+        lua_pushstring(L, "keypressed");
+        lua_pushstring(L, key_name(buf, e.key.key));
+        return 2;
 
-    case SDL_KEYDOWN:
-      lua_pushstring(L, "keypressed");
-      lua_pushstring(L, key_name(buf, e.key.keysym.sym));
-      return 2;
+    case SDL_EVENT_KEY_UP:
+        lua_pushstring(L, "keyreleased");
+        lua_pushstring(L, key_name(buf, e.key.key));
+        return 2;
 
-    case SDL_KEYUP:
-      lua_pushstring(L, "keyreleased");
-      lua_pushstring(L, key_name(buf, e.key.keysym.sym));
-      return 2;
+    case SDL_EVENT_TEXT_INPUT:
+        lua_pushstring(L, "textinput");
+        lua_pushstring(L, e.text.text);
+        return 2;
 
-    case SDL_TEXTINPUT:
-      lua_pushstring(L, "textinput");
-      lua_pushstring(L, e.text.text);
-      return 2;
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        lua_pushstring(L, "mousepressed");
+        lua_pushstring(L, button_name(e.button.button));
+        lua_pushnumber(L, e.button.x);
+        lua_pushnumber(L, e.button.y);
+        lua_pushnumber(L, e.button.clicks);
+        return 5;
 
-    case SDL_MOUSEBUTTONDOWN:
-      if (e.button.button == 1) { SDL_CaptureMouse(1); }
-      lua_pushstring(L, "mousepressed");
-      lua_pushstring(L, button_name(e.button.button));
-      lua_pushnumber(L, e.button.x);
-      lua_pushnumber(L, e.button.y);
-      lua_pushnumber(L, e.button.clicks);
-      return 5;
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+        lua_pushstring(L, "mousereleased");
+        lua_pushstring(L, button_name(e.button.button));
+        lua_pushnumber(L, e.button.x);
+        lua_pushnumber(L, e.button.y);
+        return 4;
 
-    case SDL_MOUSEBUTTONUP:
-      if (e.button.button == 1) { SDL_CaptureMouse(0); }
-      lua_pushstring(L, "mousereleased");
-      lua_pushstring(L, button_name(e.button.button));
-      lua_pushnumber(L, e.button.x);
-      lua_pushnumber(L, e.button.y);
-      return 4;
+    case SDL_EVENT_MOUSE_MOTION:
+        lua_pushstring(L, "mousemoved");
+        lua_pushnumber(L, e.motion.x);
+        lua_pushnumber(L, e.motion.y);
+        lua_pushnumber(L, e.motion.xrel);
+        lua_pushnumber(L, e.motion.yrel);
+        return 5;
 
-    case SDL_MOUSEMOTION:
-      lua_pushstring(L, "mousemoved");
-      lua_pushnumber(L, e.motion.x);
-      lua_pushnumber(L, e.motion.y);
-      lua_pushnumber(L, e.motion.xrel);
-      lua_pushnumber(L, e.motion.yrel);
-      return 5;
+    case SDL_EVENT_MOUSE_WHEEL:
+        lua_pushstring(L, "mousewheel");
+        lua_pushnumber(L, e.wheel.y);
+        return 2;
 
-    case SDL_MOUSEWHEEL:
-      lua_pushstring(L, "mousewheel");
-      lua_pushnumber(L, e.wheel.y);
-      return 2;
-
+    case SDL_EVENT_DROP_FILE: {
+      ;
+        char *path = (char*)e.drop.data;
+        lua_pushstring(L, "filedropped");
+        lua_pushstring(L, path);
+        lua_pushnumber(L, e.drop.x);
+        lua_pushnumber(L, e.drop.y);
+        SDL_free((void*)path);
+        return 4;
+    }
     default:
-      goto top;
-  }
-
-  return 0;
+        goto top;
+    }
 }
 
 
 static int f_wait_event(lua_State *L) {
-  double n = luaL_checknumber(L, 1);
-  lua_pushboolean(L, SDL_WaitEventTimeout(NULL, n * 1000));
-  return 1;
+    double n = luaL_checknumber(L, 1);
+    SDL_Event e;
+    lua_pushboolean(L, SDL_WaitEventTimeout(&e, (int)(n * 1000)));
+    return 1;
 }
 
 
-static SDL_Cursor* cursor_cache[SDL_SYSTEM_CURSOR_HAND + 1];
+static SDL_Cursor* cursor_cache[SDL_SYSTEM_CURSOR_POINTER + 1];
 
 static const char *cursor_opts[] = {
   "arrow",
@@ -151,11 +135,11 @@ static const char *cursor_opts[] = {
 };
 
 static const int cursor_enums[] = {
-  SDL_SYSTEM_CURSOR_ARROW,
-  SDL_SYSTEM_CURSOR_IBEAM,
-  SDL_SYSTEM_CURSOR_SIZEWE,
-  SDL_SYSTEM_CURSOR_SIZENS,
-  SDL_SYSTEM_CURSOR_HAND
+  SDL_SYSTEM_CURSOR_DEFAULT,
+  SDL_SYSTEM_CURSOR_TEXT,
+  SDL_SYSTEM_CURSOR_EW_RESIZE,
+  SDL_SYSTEM_CURSOR_NS_RESIZE,
+  SDL_SYSTEM_CURSOR_POINTER
 };
 
 static int f_set_cursor(lua_State *L) {
@@ -172,9 +156,8 @@ static int f_set_cursor(lua_State *L) {
 
 
 static int f_set_window_title(lua_State *L) {
-  const char *title = luaL_checkstring(L, 1);
-  SDL_SetWindowTitle(window, title);
-  return 0;
+    SDL_SetWindowTitle(window, luaL_checkstring(L, 1));
+    return 0;
 }
 
 
@@ -182,47 +165,46 @@ static const char *window_opts[] = { "normal", "maximized", "fullscreen", 0 };
 enum { WIN_NORMAL, WIN_MAXIMIZED, WIN_FULLSCREEN };
 
 static int f_set_window_mode(lua_State *L) {
-  int n = luaL_checkoption(L, 1, "normal", window_opts);
-  SDL_SetWindowFullscreen(window,
-    n == WIN_FULLSCREEN ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-  if (n == WIN_NORMAL) { SDL_RestoreWindow(window); }
-  if (n == WIN_MAXIMIZED) { SDL_MaximizeWindow(window); }
-  return 0;
+    static const char *modes[] = { "normal", "maximized", "fullscreen", NULL };
+    int mode = luaL_checkoption(L, 1, "normal", modes);
+
+    switch (mode) {
+        case 0: SDL_SetWindowFullscreen(window, false); break;
+        case 1: SDL_MaximizeWindow(window); break;
+        case 2: SDL_SetWindowFullscreen(window, true); break;
+    }
+    return 0;
 }
 
 
 static int f_window_has_focus(lua_State *L) {
-  unsigned flags = SDL_GetWindowFlags(window);
-  lua_pushboolean(L, flags & SDL_WINDOW_INPUT_FOCUS);
-  return 1;
+    lua_pushboolean(L, (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) !=0);
+    return 1;
 }
 
 
 static int f_show_confirm_dialog(lua_State *L) {
-  const char *title = luaL_checkstring(L, 1);
-  const char *msg = luaL_checkstring(L, 2);
+    const char *title = luaL_checkstring(L, 1);
+    const char *msg   = luaL_checkstring(L, 2);
 
-#if _WIN32
-  int id = MessageBox(0, msg, title, MB_YESNO | MB_ICONWARNING);
-  lua_pushboolean(L, id == IDYES);
+    const SDL_MessageBoxButtonData buttons[] = {
+        { SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Yes" },
+        { SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "No"  },
+    };
 
-#else
-  SDL_MessageBoxButtonData buttons[] = {
-    { SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Yes" },
-    { SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "No" },
-  };
-  SDL_MessageBoxData data = {
-    .title = title,
-    .message = msg,
-    .numbuttons = 2,
-    .buttons = buttons,
-  };
-  int buttonid;
-  SDL_ShowMessageBox(&data, &buttonid);
-  lua_pushboolean(L, buttonid == 1);
-#endif
-  return 1;
+    const SDL_MessageBoxData data = {
+        .title = title,
+        .message = msg,
+        .buttons = buttons,
+        .numbuttons = 2,
+    };
+
+    int rid = 0;
+    SDL_ShowMessageBox(&data, &rid);
+    lua_pushboolean(L, rid == 1);
+    return 1;
 }
+
 
 
 static int f_chdir(lua_State *L) {
@@ -305,51 +287,38 @@ static int f_get_file_info(lua_State *L) {
 }
 
 
+
 static int f_get_clipboard(lua_State *L) {
-  char *text = SDL_GetClipboardText();
-  if (!text) { return 0; }
-  lua_pushstring(L, text);
-  SDL_free(text);
-  return 1;
+    char *text = SDL_GetClipboardText();
+    if (!text)
+        return 0;
+    lua_pushstring(L, text);
+    SDL_free(text);
+    return 1;
 }
 
 
 static int f_set_clipboard(lua_State *L) {
-  const char *text = luaL_checkstring(L, 1);
-  SDL_SetClipboardText(text);
-  return 0;
+    SDL_SetClipboardText(luaL_checkstring(L, 1));
+    return 0;
 }
 
 
 static int f_get_time(lua_State *L) {
-  double n = SDL_GetPerformanceCounter() / (double) SDL_GetPerformanceFrequency();
-  lua_pushnumber(L, n);
-  return 1;
+    double t = SDL_GetTicksNS() / 1e9;
+    lua_pushnumber(L, t);
+    return 1;
 }
-
 
 static int f_sleep(lua_State *L) {
-  double n = luaL_checknumber(L, 1);
-  SDL_Delay(n * 1000);
-  return 0;
+    SDL_Delay((int)(luaL_checknumber(L, 1) * 1000));
+    return 0;
 }
 
-
 static int f_exec(lua_State *L) {
-  size_t len;
-  const char *cmd = luaL_checklstring(L, 1, &len);
-  char *buf = malloc(len + 32);
-  if (!buf) { luaL_error(L, "buffer allocation failed"); }
-#if _WIN32
-  sprintf(buf, "cmd /c \"%s\"", cmd);
-  WinExec(buf, SW_HIDE);
-#else
-  sprintf(buf, "%s &", cmd);
-  int res = system(buf);
-  (void) res;
-#endif
-  free(buf);
-  return 0;
+    const char *cmd = luaL_checkstring(L, 1);
+    system(cmd);
+    return 0;
 }
 
 

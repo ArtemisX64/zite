@@ -18,8 +18,8 @@ pub fn build(b: *std.Build) void {
         .{
             .files = &.{
                 //"src/main.c",
-                "src/rencache.c",
                 "src/renderer.c",
+                "src/rencache.c",
                 "src/api/api.c",
                 "src/api/renderer.c",
                 "src/api/renderer_font.c",
@@ -79,7 +79,7 @@ pub fn build(b: *std.Build) void {
     c_module.addIncludePath(.{ .cwd_relative = "src/lib/lua52" });
 
     c_module.linkSystemLibrary("m", .{});
-    c_module.linkSystemLibrary("SDL2", .{});
+    // c_module.linkSystemLibrary("SDL3", .{});
 
     const mod = b.addModule("zite", .{
         .root_source_file = b.path("src/root.zig"),
@@ -106,10 +106,10 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    // const sdl3 = b.dependency("sdl3", .{
-    //     .target = target,
-    //     .optimize = optimize,
-    // });
+    const sdl3 = b.dependency("sdl3", .{
+        .target = target,
+        .optimize = optimize,
+    });
 
     // const lua_dep = b.dependency("zlua", .{
     //     .target = target,
@@ -118,7 +118,7 @@ pub fn build(b: *std.Build) void {
     //     .shared = true,
     // });
 
-    // mod.addImport("sdl3", sdl3.module("sdl3"));
+    mod.addImport("sdl3", sdl3.module("sdl3"));
     // mod.addImport("zlua", lua_dep.module("zlua"));
     exe.addIncludePath(.{ .cwd_relative = "src" });
     exe.addIncludePath(.{ .cwd_relative = "src/lib/lua52" });
