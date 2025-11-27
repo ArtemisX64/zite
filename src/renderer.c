@@ -8,12 +8,12 @@
 #define MAX_GLYPHSET 256
 
 
-typedef struct
+struct GlyphSet
 {
   SDL_Texture *texture; // GPU texture for atlas
   stbtt_bakedchar glyphs[256];
   int width, height;
-} GlyphSet;
+};
 
 struct RenFont
 {

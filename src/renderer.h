@@ -7,6 +7,7 @@
 
 typedef struct RenImage RenImage;
 typedef struct RenFont RenFont;
+typedef struct GlyphSet GlyphSet;
 
 typedef struct { uint8_t b, g, r, a; } RenColor;
 typedef struct { float x, y, width, height; } RenRect;

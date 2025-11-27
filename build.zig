@@ -1,5 +1,4 @@
 const std = @import("std");
-
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(
         .{
@@ -9,7 +8,6 @@ pub fn build(b: *std.Build) void {
         },
     );
     const optimize = b.standardOptimizeOption(.{});
-
     const c_module = b.createModule(.{
         .target = target,
         .optimize = optimize,
@@ -17,12 +15,10 @@ pub fn build(b: *std.Build) void {
     c_module.addCSourceFiles(
         .{
             .files = &.{
-                //"src/main.c",
                 "src/renderer.c",
                 "src/rencache.c",
                 "src/api/renderer.c",
                 "src/api/renderer_font.c",
-                "src/api/system.c",
                 "src/lib/lua52/lapi.c",
                 "src/lib/lua52/lauxlib.c",
                 "src/lib/lua52/lbaselib.c",
