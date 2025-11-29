@@ -1,32 +1,28 @@
-const sdl = @import("sdl3");
 const std = @import("std");
+
+const sdl = @import("sdl3");
+const zlua = @import("zlua");
+
 const Api = @import("api/api.zig").Api;
+const RenCache = @import("rencache.zig").RenCache;
 const Renderer = @import("renderer.zig").Renderer;
 const Window = @import("window.zig").Window;
 
-//TODO: For compatibility check
-//Remove
-const zlua = @import("zlua");
-const RenColor = @import("renderer.zig").RenColor;
-const checkColor = @import("api/renderer.zig").checkColor;
-
-export fn checkcolor(L: *zlua.LuaState, idx: c_int, def: c_int) callconv(.c) RenColor {
-    return checkColor(@ptrCast(L), @intCast(idx), @intCast(def)).toRenColor();
-}
-
 pub const Zite = struct {
+    allocator: std.mem.Allocator,
     api: Api,
-    window: Window,
-    renderer: Renderer,
+    ren_cache: RenCache,
 
     pub fn new(allocator: std.mem.Allocator) !Zite {
-        var window = try Window.new();
-        const renderer = Renderer.new(&window);
-        const api = try Api.new(allocator, &window);
+        const renderer = try Renderer.new();
+        const ren_cache = try RenCache.new(renderer);
+
+        const api = try Api.new(allocator, ren_cache);
+
         return .{
+            .allocator = allocator,
             .api = api,
-            .window = window,
-            .renderer = renderer,
+            .ren_cache = ren_cache,
         };
     }
 
@@ -35,7 +31,6 @@ pub const Zite = struct {
     }
 
     pub fn deinit(self: *Zite) void {
-        self.api.deinit();
-        self.window.deinit();
+        self.api.deinit(self.allocator);
     }
 };

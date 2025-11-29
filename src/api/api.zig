@@ -1,35 +1,34 @@
-const zlua = @import("zlua");
 const std = @import("std");
-const Cfg = @import("../config.zig").Cfg{};
-const getPlatform = @import("sdl3").platform.get;
-const System = @import("system.zig").System;
-const APIRenderer = @import("renderer.zig").Renderer;
-const Window = @import("../window.zig").Window;
-
 const Allocator = std.mem.Allocator;
 
-// //FIXME: Remove
-// extern fn luaopen_renderer(L: ?*zlua.LuaState) c_int;
+const getPlatform = @import("sdl3").platform.get;
+const zlua = @import("zlua");
 
+const RenCache = @import("../rencache.zig").RenCache;
+const Renderer = @import("../renderer.zig").Renderer;
+const Window = @import("../window.zig").Window;
+const APIRenderer = @import("renderer.zig").APIRenderer;
+const RenFont = @import("renderer_font.zig").RendererFont;
+const System = @import("system.zig").System;
+
+const Cfg = @import("../config.zig").Cfg{};
 //Workaround for k
-fn noCont(_: ?*zlua.LuaState) callconv(.c) c_int {
+fn noCont(_: ?*zlua.LuaState, _: c_int, _: zlua.Context) callconv(.c) c_int {
     return 0;
 }
-
-// fn luaopenRenderer(L: ?*zlua.LuaState) callconv(.c) c_int {
-//     return luaopen_renderer(@ptrCast(L));
-// }
 
 //Initialises Lua and also, general api functions
 pub const Api = struct {
     lua: *zlua.Lua,
     exe_path: []const u8,
-    pub fn new(alloc: Allocator, window: *Window) !Api {
+    pub fn new(alloc: Allocator, ren_cache: RenCache) !Api {
         const lua = try zlua.Lua.init(alloc);
         lua.newTable();
         const exe_path = try std.fs.selfExePathAlloc(alloc);
 
-        System.window = window.window;
+        System.window = ren_cache.renderer.window.window;
+        System.allocator = alloc;
+        APIRenderer.ren_cache = ren_cache;
 
         return Api{
             .lua = lua,
@@ -72,6 +71,7 @@ pub const Api = struct {
     pub fn deinit(self: *Api, allocator: Allocator) void {
         allocator.free(self.exe_path);
         self.lua.deinit();
+        APIRenderer.ren_cache.renderer.window.deinit();
     }
 
     fn load_libs(self: *Api) void {

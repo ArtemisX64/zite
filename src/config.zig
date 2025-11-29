@@ -22,4 +22,8 @@ pub const Cfg = struct {
     ,
     api_type_font: [:0]const u8 = "Font",
     max_glyphset: usize = 256,
+    cells_x: usize = 80,
+    cells_y: usize = 50,
+    cell_size: usize = 96,
+    command_buf_size: usize = 1024 * 512,
 };

@@ -1,18 +1,22 @@
 const std = @import("std");
+
 const Zite = @import("zite").Zite;
 const ZWindow = @import("zite").ZWindow;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var zite = try Zite.new(gpa.allocator());
+    defer _ = gpa.deinit();
 
+    const allocator = gpa.allocator();
+    var zite = try Zite.new(allocator);
+    defer zite.deinit();
     var argsIt = std.process.args();
 
-    var args = try std.ArrayList([]const u8).initCapacity(gpa.allocator(), 256);
-    defer args.deinit(gpa.allocator());
+    var args = try std.ArrayList([]const u8).initCapacity(allocator, 256);
+    defer args.deinit(allocator);
 
     while (argsIt.next()) |arg| {
-        try args.append(gpa.allocator(), arg);
+        try args.append(allocator, arg);
     }
     try zite.init(args.items);
 }

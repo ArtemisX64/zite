@@ -1,14 +1,17 @@
 const std = @import("std");
-const zlua = @import("zlua");
+const Allocator = std.mem.Allocator;
+
 const sdl = @import("sdl3");
 const Button = sdl.mouse.Button;
-const Window = @import("../window.zig").Window;
-const Allocator = std.mem.Allocator;
 const Event = sdl.events.Event;
+const zlua = @import("zlua");
+
+const Window = @import("../window.zig").Window;
 
 pub const System = @This();
 
 pub var window: sdl.video.Window = undefined;
+pub var allocator: std.mem.Allocator = undefined;
 
 var cursorCache = [_]?sdl.mouse.Cursor{null} ** (@as(i32, @intFromEnum(sdl.mouse.SystemCursor.pointer)) + 1);
 
@@ -202,7 +205,7 @@ fn pollEvent(lua: *zlua.Lua) c_int {
 
             .mouse_button_down => {
                 if (e.mouse_button_down.button == .left) {
-                    sdl.mouse.setWindowRelativeMode(window, true) catch return 0;
+                    sdl.mouse.setWindowGrab(window, true) catch return 0;
                 }
                 _ = lua.pushString("mousepressed");
                 _ = lua.pushString(getButtonName(e.mouse_button_down.button));
@@ -214,7 +217,7 @@ fn pollEvent(lua: *zlua.Lua) c_int {
 
             .mouse_button_up => {
                 if (e.mouse_button_up.button == .left) {
-                    sdl.mouse.setWindowRelativeMode(window, false) catch return 0;
+                    sdl.mouse.setWindowGrab(window, false) catch return 0;
                 }
                 _ = lua.pushString("mousereleased");
                 _ = lua.pushString(getButtonName(e.mouse_button_up.button));
@@ -234,7 +237,7 @@ fn pollEvent(lua: *zlua.Lua) c_int {
 
             .mouse_wheel => {
                 _ = lua.pushString("mousewheel");
-                lua.pushNumber(e.mouse_wheel.y);
+                lua.pushNumber(e.mouse_wheel.scroll_y);
                 return 2;
             },
 
@@ -429,10 +432,10 @@ fn setClipboard(lua: *zlua.Lua) c_int {
 }
 
 fn getTime(lua: *zlua.Lua) c_int {
-    const t = sdl.timer.getNanosecondsSinceInit();
-    const seconds: f64 = @as(f64, @floatFromInt(t)) / 1e9;
+    const t = sdl.timer.getMillisecondsSinceInit();
+    const seconds: f64 = @as(f64, @floatFromInt(t)) / 1000;
 
-    lua.pushNumber(seconds);
+    lua.pushNumber(@floatCast(seconds));
     return 1;
 }
 
@@ -444,14 +447,11 @@ fn sleep(lua: *zlua.Lua) c_int {
 
 fn exec(lua: *zlua.Lua) c_int {
     const cmd = lua.checkString(1);
-    const alloc = std.heap.page_allocator;
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
 
     const argv = [_][]const u8{
         "sh", "-c", cmd,
     };
-    var child = std.process.Child.init(&argv, alloc);
+    var child = std.process.Child.init(&argv, allocator);
     child.stderr_behavior = .Inherit;
     child.stdin_behavior = .Inherit;
     child.stdout_behavior = .Inherit;
