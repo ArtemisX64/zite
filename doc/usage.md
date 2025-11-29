@@ -1,25 +1,25 @@
-# lite
+# zite
 
-![screenshot](https://user-images.githubusercontent.com/3920290/81471642-6c165880-91ea-11ea-8cd1-fae7ae8f0bc4.png)
 
 ## Overview
-lite is a lightweight text editor written mostly in Lua — it aims to provide
+zite is a lightweight text editor written mostly in Lua and Zig — it aims to provide
 something practical, pretty, *small* and fast, implemented as simply as
 possible; easy to modify and extend, or to use without doing either.
 
+This is originally the port of lite
 
 ## Getting Started
-When lite is started it's typically opened with a *project directory* — this
+When zite is started it's typically opened with a *project directory* — this
 is the directory where your project's code and other data resides. The project
-directory is set once when lite is started and, for the duration of the
+directory is set once when zite is started and, for the duration of the
 session, cannot be changed.
 
-To open lite with a specific project directory the directory name can be passed
+To open zite with a specific project directory the directory name can be passed
 as a command-line argument *(`.` can be passed to use the current directory)* or
-the directory can be dragged onto either the lite executable or a running
-instance of lite.
+the directory can be dragged onto either the zite executable or a running
+instance of zite.
 
-The main way of opening files in lite is through the `core:find-file` command
+The main way of opening files in zite is through the `core:find-file` command
 — this provides a fuzzy finder over all of the project's files and can be
 opened using the **`ctrl+p`** shortcut by default.
 
@@ -32,12 +32,12 @@ of the command name on the command finder, thus to find the shortcut for a comma
 
 
 ## User Module
-lite can be configured through use of the user module. The user module can be
+zite can be configured through use of the user module. The user module can be
 used for changing options in the config module, adding additional key bindings,
 loading custom color themes, modifying the style or changing any other part of
-lite to your personal preference.
+zite to your personal preference.
 
-The user module is loaded by lite when the application starts, after the plugins
+The user module is loaded by zite when the application starts, after the plugins
 have been loaded.
 
 The user module can be modified by running the `core:open-user-module` command
@@ -46,11 +46,11 @@ or otherwise directly opening the `data/user/init.lua` file.
 
 ## Project Module
 The project module is an optional module which is loaded from the current
-project's directory when lite is started. Project modules can be useful for
+project's directory when zite is started. Project modules can be useful for
 things like adding custom commands for project-specific build systems, or
 loading project-specific plugins.
 
-The project module is loaded by lite when the application starts, after both the
+The project module is loaded by zite when the application starts, after both the
 plugins and user module have been loaded.
 
 The project module can be edited by running the `core:open-project-module`
@@ -59,8 +59,8 @@ command is run it will be created.
 
 
 ## Commands
-Commands in lite are used both through the command finder (`ctrl+shift+p`) and
-by lite's keyboard shortcut system. Commands consist of 3 components:
+Commands in zite are used both through the command finder (`ctrl+shift+p`) and
+by zite's keyboard shortcut system. Commands consist of 3 components:
 * **Name** — The command name in the form of `namespace:action-name`, for
   example: `doc:select-all`
 * **Predicate** — A function that returns true if the command can be ran, for
@@ -92,9 +92,9 @@ command.perform "core:quit"
 
 
 ## Keymap
-All keyboard shortcuts in lite are handled by the `core.keymap` module. A key
-binding in lite maps a "stroke" (eg. `ctrl+q`) to one or more commands (eg.
-`core:quit`). When the shortcut is pressed lite will iterate each command
+All keyboard shortcuts in zite are handled by the `core.keymap` module. A key
+binding in zite maps a "stroke" (eg. `ctrl+q`) to one or more commands (eg.
+`core:quit`). When the shortcut is pressed zite will iterate each command
 assigned to that key and run the *predicate function* for that command — if the
 predicate passes it stops iterating and runs the command.
 
@@ -115,13 +115,13 @@ keymap.add { ["ctrl+q"] = "core:quit" }
 
 
 ## Plugins
-Plugins in lite are normal lua modules and are treated as such — no
+Plugins in zite are normal lua modules and are treated as such — no
 complicated plugin manager is provided, and, once a plugin is loaded, it is never
 expected be to have to unload itself.
 
 To install a plugin simply drop it in the `data/plugins` directory — installed
-plugins will be automatically loaded when lite starts. To uninstall a plugin the
-plugin file can be deleted — any plugin (including those included with lite's
+plugins will be automatically loaded when zite starts. To uninstall a plugin the
+plugin file can be deleted — any plugin (including those included with zite's
 default installation) can be deleted to remove its functionality.
 
 If you want to load a plugin only under a certain circumstance (for example,
@@ -133,7 +133,7 @@ Plugins can be downloaded from the [plugins repository](https://github.com/rxi/l
 
 
 ## Color Themes
-Colors themes in lite are lua modules which overwrite the color fields of lite's
+Colors themes in zite are lua modules which overwrite the color fields of zite's
 `core.style` module. Color themes should be placed in the `data/user/colors`
 directory.
 
@@ -143,4 +143,3 @@ require "user.colors.winter"
 ```
 
 Color themes can be downloaded from the [color themes repository](https://github.com/rxi/lite-colors).
-
