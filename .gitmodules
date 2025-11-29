@@ -1,3 +1,1 @@
-[submodule "src/lib/lua52"]
-	path = src/lib/lua52
-	url = git@github.com:jjensen/lua52.git
+
